@@ -1,28 +1,26 @@
-﻿using System;
-using System.IO.Ports;
-using System.Threading.Tasks;
+﻿using System.IO.Ports;
 
 class App
 {
-    static SerialPort port;
-    static string[] info_line;
+    const string PATH = "COM4";
+    const int BAUDRATE = 9600;
+    const int INTERVAL = 1000;
+
+    static SerialPort port = new SerialPort(PATH, BAUDRATE);
+    static string[]? info_line;
     static int padlen;
 
     static void Main(string[] args)
     {
-        string path = "COM4";
-        int baudRate = 9600;
-
-        port = new SerialPort(path, baudRate);
         port.Open();
-
         port.DataReceived += new SerialDataReceivedEventHandler(handleReceivedData);
 
-        port.Write("INFO\r\n");
-        Task.Delay(100).Wait();
-        port.Write("POLL 1000\r\n");
+        port.Write($"POLL {INTERVAL}\r\n");
         Task.Delay(100).Wait();
         port.Write("FRAC 2\r\n");
+        Task.Delay(100).Wait();
+
+        port.Write("INFO\r\n");
         Task.Delay(100).Wait();
     }
 
@@ -32,16 +30,13 @@ class App
         string data = port.ReadLine();
         string[] split = data.Replace(", ", ",").Split('*')[0].Split(',');
 
-        Console.WriteLine(data);
-        Console.WriteLine(split);
-
         if (split[0] == "I")
         {
             if (split[1] == "Product ID")
             {
                 info_line = split;
-                padlen = GetMaxLength(split, 4);
-                Console.WriteLine(info_line);
+                padlen = split.Skip(4).OrderByDescending(s => s.Length).First().Length;
+                Console.WriteLine(string.Join(",", info_line));
             }
             else
             {
@@ -60,25 +55,15 @@ class App
         float[] values = Array.ConvertAll(GetEveryOther(split, 4, 0), float.Parse);
         string[] units = GetEveryOther(split, 4, 1);
 
+        Console.WriteLine(device);
+        Console.WriteLine(string.Join(",", sensors));
+
         Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} {device}");
         for (int i = 0; i < units.Length; i++)
         {
             Console.WriteLine($"{sensors[i].PadRight(padlen + 2)} {values[i]} {units[i]}");
         }
         Console.WriteLine("\n");
-    }
-
-    static int GetMaxLength(string[] arr, int start)
-    {
-        int max = 0;
-        for (int i = start; i < arr.Length; i += 2)
-        {
-            if (arr[i].Length > max)
-            {
-                max = arr[i].Length;
-            }
-        }
-        return max;
     }
 
     static string[] GetEveryOther(string[] arr, int start, int offset)
