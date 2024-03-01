@@ -6,27 +6,39 @@ class App
     const int BAUDRATE = 9600;
     const int INTERVAL = 1000;
 
-    static SerialPort port = new SerialPort(PATH, BAUDRATE);
+    static SerialPort port = new(PATH, BAUDRATE, Parity.None, 8, StopBits.One);
     static string[]? info_line;
     static int padlen;
 
     static void Main(string[] args)
     {
-        port.Open();
-        port.DataReceived += new SerialDataReceivedEventHandler(handleReceivedData);
+        try
+        {
+            Console.CancelKeyPress += delegate { port.Close(); };
+            port.Open();
 
-        port.Write($"POLL {INTERVAL}\r\n");
-        Task.Delay(100).Wait();
-        port.Write("FRAC 2\r\n");
-        Task.Delay(100).Wait();
+            port.Write($"POLL {INTERVAL}\r\n");
+            Task.Delay(100).Wait();
+            port.Write("FRAC 2\r\n");
+            Task.Delay(100).Wait();
+            port.Write("INFO\r\n");
+            Task.Delay(100).Wait();
 
-        port.Write("INFO\r\n");
-        Task.Delay(100).Wait();
+            // NOTE: while the standard approach would be to use Event handler `port.DataReceived`, it has
+            // proven unable to receive non-input driven readout data thus far.
+            while (port.IsOpen)
+            {
+                handleReceivedData();
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e.ToString());
+        }
     }
 
-    static void handleReceivedData(object sender, SerialDataReceivedEventArgs e)
+    static void handleReceivedData()
     {
-        SerialPort port = (SerialPort)sender;
         string data = port.ReadLine();
         string[] split = data.Replace(", ", ",").Split('*')[0].Split(',');
 
@@ -36,7 +48,7 @@ class App
             {
                 info_line = split;
                 padlen = split.Skip(4).OrderByDescending(s => s.Length).First().Length;
-                Console.WriteLine(string.Join(",", info_line));
+                Console.WriteLine(string.Join(",", split));
             }
             else
             {
@@ -51,12 +63,9 @@ class App
         }
 
         string device = $"{split[1]} {split[2]}";
-        string[] sensors = GetEveryOther(info_line, 4, 0);
-        float[] values = Array.ConvertAll(GetEveryOther(split, 4, 0), float.Parse);
-        string[] units = GetEveryOther(split, 4, 1);
-
-        Console.WriteLine(device);
-        Console.WriteLine(string.Join(",", sensors));
+        string[] sensors = info_line[4..].Where((v, i) => i % 2 < 1).ToArray();
+        string[] values = split[4..].Where((v, i) => i % 2 < 1)/*.Select(double.Parse)*/.ToArray();
+        string[] units = split[4..].Where((v, i) => i % 2 > 0).ToArray();
 
         Console.WriteLine($"{DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")} {device}");
         for (int i = 0; i < units.Length; i++)
@@ -64,15 +73,5 @@ class App
             Console.WriteLine($"{sensors[i].PadRight(padlen + 2)} {values[i]} {units[i]}");
         }
         Console.WriteLine("\n");
-    }
-
-    static string[] GetEveryOther(string[] arr, int start, int offset)
-    {
-        var list = new System.Collections.Generic.List<string>();
-        for (int i = start + offset; i < arr.Length; i += 2)
-        {
-            list.Add(arr[i]);
-        }
-        return list.ToArray();
     }
 }
