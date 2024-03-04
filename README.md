@@ -21,7 +21,8 @@ dotnet run sample-csharp-vcp.sln
 
 
 ## Sample output
-<img src="https://github.com/Dracaltech/sample-node-vcp/assets/1357711/305ff9ae-2d98-4485-99a6-d09c02523d1e" width=400 />
+<img src="https://github.com/Dracaltech/sample-csharp-vcp/assets/1357711/8f34fdfd-0383-427a-8adc-3330b847430c" width=400 />
+
 
 ```
 Awaiting info line...
