@@ -9,12 +9,12 @@ class App
     static SerialPort port = new(PATH, BAUDRATE, Parity.None, 8, StopBits.One);
     static string[]? info_line;
     static int padlen;
-
+    
     static void Main(string[] args)
     {
+        Console.CancelKeyPress += (s, e) => { Environment.Exit(0); };
         try
         {
-            Console.CancelKeyPress += delegate { port.Close(); };
             port.Open();
 
             port.Write($"POLL {INTERVAL}\r\n");
